@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { api } from '../services/api';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -49,67 +50,50 @@ interface LegalCaseManagerProps {
 }
 
 export function LegalCaseManager({ userTier }: LegalCaseManagerProps) {
-  // Sample hierarchical data structure
-  const [items, setItems] = useState<Item[]>([
-    // Root folders
-    { id: 'f1', name: 'Casos Civiles', type: 'folder', parentId: null },
-    { id: 'f2', name: 'Casos Penales', type: 'folder', parentId: null },
-    { id: 'f3', name: 'Casos Laborales', type: 'folder', parentId: null },
-    
-    // Subfolders in Casos Civiles
-    { id: 'f1-1', name: 'Demandas', type: 'folder', parentId: 'f1' },
-    { id: 'f1-2', name: 'Contratos', type: 'folder', parentId: 'f1' },
-    
-    // Subfolders in Casos Penales
-    { id: 'f2-1', name: 'Delitos Graves', type: 'folder', parentId: 'f2' },
-    { id: 'f2-2', name: 'Delitos Menores', type: 'folder', parentId: 'f2' },
-    
-    // Files in Demandas subfolder
-    {
-      id: 'file1',
-      name: 'Smith vs Johnson Corp',
-      type: 'file',
-      parentId: 'f1-1',
-      caseNumber: 'CV-2024-001',
-      uploadDate: '2024-10-15',
-      size: '2.4 MB',
-      status: 'Activo'
-    },
-    {
-      id: 'file2',
-      name: 'García vs Inmobiliaria',
-      type: 'file',
-      parentId: 'f1-1',
-      caseNumber: 'CV-2024-002',
-      uploadDate: '2024-10-18',
-      size: '1.9 MB',
-      status: 'Pendiente'
-    },
-    
-    // Files in Delitos Graves subfolder
-    {
-      id: 'file3',
-      name: 'Estado vs Anderson',
-      type: 'file',
-      parentId: 'f2-1',
-      caseNumber: 'CR-2024-045',
-      uploadDate: '2024-10-20',
-      size: '1.8 MB',
-      status: 'Pendiente'
-    },
-    
-    // Files in Casos Laborales (direct files in folder)
-    {
-      id: 'file4',
-      name: 'Despido Improcedente - Martínez',
-      type: 'file',
-      parentId: 'f3',
-      caseNumber: 'LAB-2024-012',
-      uploadDate: '2024-09-30',
-      size: '3.2 MB',
-      status: 'Cerrado'
-    }
-  ]);
+  // State for items from backend
+  const [items, setItems] = useState<Item[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchCasos = async () => {
+      try {
+        const data = await api.get<any[]>('/casos/');
+        const mappedCases: FileItem[] = data.map(caso => ({
+          id: caso.oid_caso.toString(),
+          name: caso.titulo || '0',
+          type: 'file',
+          parentId: 'root', // Flat structure for now or categorized by type
+          caseNumber: caso.numero_expediente || '0',
+          uploadDate: caso.fecha_inicio || '0',
+          size: '0 KB', // Not in current backend model
+          status: (caso.estado_nombre as any) || 'Pendiente'
+        }));
+        
+        // Optionally create folders based on TipoCaso
+        const uniqueTypes = Array.from(new Set(data.map(c => c.tipo_caso_nombre)));
+        const typeFolders: FolderItem[] = uniqueTypes.map((type, idx) => ({
+          id: `folder-${idx}`,
+          name: type || 'Sin Categoría',
+          type: 'folder',
+          parentId: null
+        }));
+
+        // Re-parent cases to their type folders
+        mappedCases.forEach(c => {
+          const original = data.find(oc => oc.oid_caso.toString() === c.id);
+          const folder = typeFolders.find(f => f.name === original.tipo_caso_nombre);
+          if (folder) c.parentId = folder.id;
+        });
+
+        setItems([...typeFolders, ...mappedCases]);
+      } catch (error) {
+        console.error('Error fetching cases:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchCasos();
+  }, []);
 
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
   const [isUploadOpen, setIsUploadOpen] = useState(false);

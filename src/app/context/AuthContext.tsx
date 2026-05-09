@@ -6,6 +6,10 @@ interface User {
   nombre: string;
   email: string;
   rol_nombre: string;
+  fecha_registro: string;
+  matricula_profesional: string;
+  especialidad: string;
+  telefono_contacto: string;
 }
 
 interface AuthContextType {

@@ -6,6 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { Badge } from './ui/badge';
 import { User, Mail, Phone, Building, Shield, Settings, Crown, ArrowRight } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { useAuth } from '../context/AuthContext';
 
 type UserTier = 'Básico' | 'Profesional' | 'Empresa' | 'Administrador';
 
@@ -16,15 +17,22 @@ interface AccountSectionProps {
 }
 
 export function AccountSection({ onNavigateToSubscription, userTier, onTierChange }: AccountSectionProps) {
+  const { user } = useAuth();
+
   const accountData = {
-    name: 'Sarah Johnson',
-    email: 'sarah.johnson@lawfirm.com',
-    phone: '+1 (555) 123-4567',
-    firm: 'Johnson & Associates',
-    memberSince: 'Enero 2022',
-    activeCases: 12,
-    totalCases: 47,
-    subscription: userTier
+    name: user?.nombre || '0',
+    email: user?.email || '0',
+    phone: user?.telefono_contacto || '0',
+    firm: user?.especialidad || user?.matricula_profesional || '0',
+    memberSince: user?.fecha_registro ? new Date(user.fecha_registro).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' }) : '0',
+    activeCases: 0,
+    totalCases: 0,
+    subscription: user?.rol_nombre || userTier
+  };
+
+  const getInitials = (name: string) => {
+    if (name === '0') return 'U';
+    return name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
   };
 
   return (
@@ -44,7 +52,7 @@ export function AccountSection({ onNavigateToSubscription, userTier, onTierChang
             <div className="flex flex-col items-center text-center">
               <Avatar className="w-24 h-24">
                 <AvatarImage src="" />
-                <AvatarFallback className="text-2xl">SJ</AvatarFallback>
+                <AvatarFallback className="text-2xl">{getInitials(accountData.name)}</AvatarFallback>
               </Avatar>
               <h3 className="mt-4 text-xl">{accountData.name}</h3>
               <p className="text-sm text-gray-600 mt-2">

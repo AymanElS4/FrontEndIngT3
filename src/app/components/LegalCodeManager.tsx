@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { api } from '../services/api';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -52,126 +53,52 @@ interface LegalCodeManagerProps {
 
 export function LegalCodeManager({ userTier }: LegalCodeManagerProps) {
   // Sample hierarchical data structure
-  const [items, setItems] = useState<Item[]>([
-    // Root folders
-    { id: 'f1', name: 'Derecho Civil', type: 'folder', parentId: null },
-    { id: 'f2', name: 'Derecho Penal', type: 'folder', parentId: null },
-    { id: 'f3', name: 'Derecho Constitucional', type: 'folder', parentId: null },
-    { id: 'f4', name: 'Derecho Administrativo', type: 'folder', parentId: null },
-    
-    // Subfolders in Derecho Civil
-    { id: 'f1-1', name: 'Códigos Civiles', type: 'folder', parentId: 'f1' },
-    { id: 'f1-2', name: 'Procedimientos', type: 'folder', parentId: 'f1' },
-    
-    // Subfolders in Derecho Penal
-    { id: 'f2-1', name: 'Códigos Penales', type: 'folder', parentId: 'f2' },
-    { id: 'f2-2', name: 'Procedimientos Penales', type: 'folder', parentId: 'f2' },
-    
-    // Files in Códigos Civiles subfolder
-    {
-      id: 'file1',
-      name: 'Código Civil Federal',
-      type: 'file',
-      parentId: 'f1-1',
-      code: 'CCF-2024',
-      jurisdiction: 'Federal',
-      uploadDate: '2024-09-01',
-      size: '5.2 MB',
-      category: 'Civil',
-      status: 'Vigente'
-    },
-    {
-      id: 'file2',
-      name: 'Código de Procedimiento Civil',
-      type: 'file',
-      parentId: 'f1-2',
-      code: 'CPC-2024',
-      jurisdiction: 'Federal',
-      uploadDate: '2024-09-05',
-      size: '4.1 MB',
-      category: 'Civil',
-      status: 'Vigente'
-    },
-    
-    // Files in Códigos Penales subfolder
-    {
-      id: 'file3',
-      name: 'Código Penal Federal',
-      type: 'file',
-      parentId: 'f2-1',
-      code: 'CP-2024',
-      jurisdiction: 'Federal',
-      uploadDate: '2024-09-15',
-      size: '4.8 MB',
-      category: 'Penal',
-      status: 'Vigente'
-    },
-    {
-      id: 'file4',
-      name: 'Código de Procedimiento Penal',
-      type: 'file',
-      parentId: 'f2-2',
-      code: 'CPP-2024',
-      jurisdiction: 'Federal',
-      uploadDate: '2024-09-18',
-      size: '3.9 MB',
-      category: 'Penal',
-      status: 'Vigente'
-    },
-    
-    // Files in Derecho Constitucional (direct files)
-    {
-      id: 'file5',
-      name: 'Constitución Política',
-      type: 'file',
-      parentId: 'f3',
-      code: 'CONST-2024',
-      jurisdiction: 'Federal',
-      uploadDate: '2024-08-20',
-      size: '2.8 MB',
-      category: 'Constitucional',
-      status: 'Vigente'
-    },
-    
-    // Files in Derecho Administrativo (direct files)
-    {
-      id: 'file6',
-      name: 'Ley Federal de Procedimiento Administrativo',
-      type: 'file',
-      parentId: 'f4',
-      code: 'LFPA-2024',
-      jurisdiction: 'Federal',
-      uploadDate: '2024-10-01',
-      size: '3.5 MB',
-      category: 'Administrativo',
-      status: 'Vigente'
-    },
-    // Add some historical and repealed codes
-    {
-      id: 'file7',
-      name: 'Código Civil Federal 2010',
-      type: 'file',
-      parentId: 'f1-1',
-      code: 'CCF-2010',
-      jurisdiction: 'Federal',
-      uploadDate: '2010-01-01',
-      size: '4.8 MB',
-      category: 'Civil',
-      status: 'Histórico'
-    },
-    {
-      id: 'file8',
-      name: 'Ley de Comercio Antiguo',
-      type: 'file',
-      parentId: 'f1-1',
-      code: 'LCA-1995',
-      jurisdiction: 'Federal',
-      uploadDate: '1995-06-15',
-      size: '2.2 MB',
-      category: 'Civil',
-      status: 'Derogado'
-    }
-  ]);
+  // State for items from backend
+  const [items, setItems] = useState<Item[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchCodigos = async () => {
+      try {
+        const data = await api.get<any[]>('/codigos/');
+        const mappedCodes: FileItem[] = data.map(codigo => ({
+          id: codigo.oid_codigo.toString(),
+          name: codigo.nombre_norma || '0',
+          type: 'file',
+          parentId: 'root',
+          code: codigo.numero_articulo || '0',
+          jurisdiction: 'Federal', // Default
+          uploadDate: new Date().toISOString().split('T')[0], // Mock date
+          size: '0 KB',
+          category: 'Civil', // Default as not in backend model yet
+          status: (codigo.estado_vigencia as any) || 'Vigente'
+        }));
+
+        // Grouping by norm name as "folders"
+        const uniqueNorms = Array.from(new Set(data.map(c => c.nombre_norma)));
+        const normFolders: FolderItem[] = uniqueNorms.map((norm, idx) => ({
+          id: `norm-folder-${idx}`,
+          name: norm || 'Sin Nombre',
+          type: 'folder',
+          parentId: null
+        }));
+
+        // Re-parent articles to their norm folders
+        mappedCodes.forEach(c => {
+          const original = data.find(oc => oc.oid_codigo.toString() === c.id);
+          const folder = normFolders.find(f => f.name === original.nombre_norma);
+          if (folder) c.parentId = folder.id;
+        });
+
+        setItems([...normFolders, ...mappedCodes]);
+      } catch (error) {
+        console.error('Error fetching codes:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchCodigos();
+  }, []);
 
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
   const [isUploadOpen, setIsUploadOpen] = useState(false);
