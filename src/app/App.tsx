@@ -12,9 +12,9 @@ import { PaymentConfirmation } from './components/PaymentConfirmation';
 import { MembersManager } from './components/MembersManager';
 import { Button } from './components/ui/button';
 import { Home, FileText, Scale, Newspaper, User, LogOut, CreditCard, Users } from 'lucide-react';
+import { useAuth } from './context/AuthContext';
 
 type Section = 'home' | 'cases' | 'codes' | 'news' | 'account' | 'subscription' | 'payment' | 'confirmation' | 'members';
-type UserTier = 'Básico' | 'Profesional' | 'Empresa' | 'Administrador';
 
 interface SelectedPlan {
   name: string;
@@ -23,25 +23,18 @@ interface SelectedPlan {
 }
 
 export default function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const { user, isLoggedIn, logout, isLoading } = useAuth();
   const [activeSection, setActiveSection] = useState<Section>('home');
   const [selectedPlan, setSelectedPlan] = useState<SelectedPlan | null>(null);
-  const [userTier, setUserTier] = useState<UserTier>('Básico'); // Default to basic tier
   const [showAdminLogin, setShowAdminLogin] = useState(false);
 
-  const handleLogin = () => {
-    setIsLoggedIn(true);
-    // Set tier to Administrador if logging in from admin page
-    if (showAdminLogin) {
-      setUserTier('Administrador');
-    }
-  };
+  // Derived state from AuthContext
+  const userTier = (user?.rol_nombre as any) || 'Básico';
 
   const handleLogout = () => {
-    setIsLoggedIn(false);
+    logout();
     setActiveSection('home');
     setShowAdminLogin(false);
-    setUserTier('Básico');
   };
 
   const handleShowAdminLogin = () => {
@@ -70,11 +63,15 @@ export default function App() {
     setActiveSection('subscription');
   };
 
+  if (isLoading) {
+    return <div className="min-h-screen flex items-center justify-center">Cargando...</div>;
+  }
+
   if (!isLoggedIn) {
     if (showAdminLogin) {
-      return <AdminLoginPage onLogin={handleLogin} onBackToUserLogin={handleBackToUserLogin} />;
+      return <AdminLoginPage onLogin={() => {}} onBackToUserLogin={handleBackToUserLogin} />;
     }
-    return <LoginPage onLogin={handleLogin} onShowAdminLogin={handleShowAdminLogin} />;
+    return <LoginPage onLogin={() => {}} onShowAdminLogin={handleShowAdminLogin} />;
   }
 
   return (
@@ -85,7 +82,7 @@ export default function App() {
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-2">
               <Scale className="w-8 h-8 text-blue-600" />
-              <h1 className="text-xl text-gray-900">Gestor de Archivos Legales</h1>
+              <h1 className="text-xl text-gray-900 font-semibold">LegalFileManager</h1>
             </div>
             
             <nav className="flex gap-2">
@@ -150,10 +147,10 @@ export default function App() {
               <Button
                 variant="ghost"
                 onClick={handleLogout}
-                className="gap-2"
+                className="gap-2 text-red-600 hover:text-red-700 hover:bg-red-50"
               >
                 <LogOut className="w-4 h-4" />
-                Log Out
+                Cerrar Sesión
               </Button>
             </nav>
           </div>
@@ -166,7 +163,7 @@ export default function App() {
         {activeSection === 'cases' && <LegalCaseManager userTier={userTier} />}
         {activeSection === 'codes' && <LegalCodeManager userTier={userTier} />}
         {activeSection === 'news' && <NewsSection />}
-        {activeSection === 'account' && <AccountSection onNavigateToSubscription={() => setActiveSection('subscription')} userTier={userTier} onTierChange={setUserTier} />}
+        {activeSection === 'account' && <AccountSection onNavigateToSubscription={() => setActiveSection('subscription')} userTier={userTier} onTierChange={() => {}} />}
         {activeSection === 'subscription' && <SubscriptionPage onSelectPlan={handleSelectPlan} />}
         {activeSection === 'payment' && selectedPlan && (
           <PaymentPage 

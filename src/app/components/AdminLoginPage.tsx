@@ -6,6 +6,7 @@ import { Label } from './ui/label';
 import { Shield, AlertCircle, ArrowLeft } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { Alert, AlertDescription } from './ui/alert';
+import { useAuth } from '../context/AuthContext';
 
 interface AdminLoginPageProps {
   onLogin: () => void;
@@ -13,29 +14,32 @@ interface AdminLoginPageProps {
 }
 
 export function AdminLoginPage({ onLogin, onBackToUserLogin }: AdminLoginPageProps) {
+  const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [adminCode, setAdminCode] = useState('');
   const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setIsSubmitting(true);
 
-    // Simple validation for demo purposes
-    if (!email || !password || !adminCode) {
-      setError('Todos los campos son requeridos');
-      return;
-    }
-
-    // Demo: Check for specific admin code
-    if (adminCode !== 'ADMIN2025') {
+    if (adminCode !== 'admin123' && adminCode !== 'ADMIN2025') {
       setError('Código de administrador inválido');
+      setIsSubmitting(false);
       return;
     }
 
-    // Simulate admin login
-    onLogin();
+    try {
+      await login(email, password);
+      onLogin();
+    } catch (err: any) {
+      setError(err.message || 'Error de autenticación');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -55,6 +59,7 @@ export function AdminLoginPage({ onLogin, onBackToUserLogin }: AdminLoginPagePro
         variant="ghost"
         className="absolute top-4 left-4 z-20 text-white hover:bg-white/10"
         onClick={onBackToUserLogin}
+        disabled={isSubmitting}
       >
         <ArrowLeft className="w-4 h-4 mr-2" />
         Volver al Login de Usuario
@@ -64,16 +69,16 @@ export function AdminLoginPage({ onLogin, onBackToUserLogin }: AdminLoginPagePro
       <Card className="w-full max-w-md relative z-10 shadow-2xl border-2 border-blue-600/50">
         <CardHeader className="space-y-4 bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded-t-lg">
           <div className="flex justify-center">
-            <div className="bg-white p-3 rounded-full">
+            <div className="bg-white p-3 rounded-full shadow-lg">
               <Shield className="w-8 h-8 text-blue-600" />
             </div>
           </div>
           <div className="text-center">
-            <CardTitle className="text-2xl text-white">
-              Acceso de Administrador
+            <CardTitle className="text-2xl text-white font-bold">
+              Panel de Administración
             </CardTitle>
             <CardDescription className="text-blue-100">
-              Ingrese sus credenciales de administrador
+              Control centralizado para firmas legales
             </CardDescription>
           </div>
         </CardHeader>
@@ -87,15 +92,15 @@ export function AdminLoginPage({ onLogin, onBackToUserLogin }: AdminLoginPagePro
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="admin-email">Correo Electrónico del Administrador</Label>
+              <Label htmlFor="admin-email">Email Administrativo</Label>
               <Input
                 id="admin-email"
                 type="email"
-                placeholder="admin@sistema.com"
+                placeholder="admin@legalfile.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="border-gray-300"
+                disabled={isSubmitting}
               />
             </div>
             
@@ -104,41 +109,34 @@ export function AdminLoginPage({ onLogin, onBackToUserLogin }: AdminLoginPagePro
               <Input
                 id="admin-password"
                 type="password"
-                placeholder="Ingrese su contraseña"
+                placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="border-gray-300"
+                disabled={isSubmitting}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="admin-code">Código de Administrador</Label>
+              <Label htmlFor="admin-code">Código de Seguridad</Label>
               <Input
                 id="admin-code"
                 type="password"
-                placeholder="Ingrese el código de administrador"
+                placeholder="Ingresa el código de 2FA"
                 value={adminCode}
                 onChange={(e) => setAdminCode(e.target.value)}
                 required
-                className="border-gray-300"
+                disabled={isSubmitting}
               />
-              <p className="text-xs text-gray-500">
-                Demo: Use el código "ADMIN2025"
+              <p className="text-[10px] text-gray-400 mt-1">
+                Para demo use: admin123
               </p>
             </div>
 
             <div className="space-y-3 pt-2">
-              <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700">
-                <Shield className="w-4 h-4 mr-2" />
-                Ingresar como Administrador
+              <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 font-semibold" disabled={isSubmitting}>
+                {isSubmitting ? 'Verificando...' : 'Acceder al Panel'}
               </Button>
-            </div>
-
-            <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-              <p className="text-xs text-amber-800">
-                <strong>Nota de Seguridad:</strong> El acceso de administrador requiere autenticación de dos factores y permisos especiales.
-              </p>
             </div>
           </form>
         </CardContent>
