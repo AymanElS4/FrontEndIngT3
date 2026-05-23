@@ -1,9 +1,11 @@
 import { useState, useMemo, useEffect } from 'react';
 import { api } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { Upload, Download, Eye, Trash2, FolderOpen, Search, Filter, Lock, Folder, File, ArrowLeft, ChevronRight, Home } from 'lucide-react';
@@ -53,25 +55,34 @@ export function LegalCaseManager({ userTier }: LegalCaseManagerProps) {
   // State for items from backend
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
-
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
   useEffect(() => {
     const fetchCasos = async () => {
       try {
-        const data = await api.get<any[]>('/casos/');
-        const mappedCases: FileItem[] = data.map(caso => ({
-          id: caso.oid_caso.toString(),
-          name: caso.titulo || '0',
+        const raw = await api.get<any>('/casos/');
+        // Handle different possible API shapes (array, { results: [] }, { data: [] }, etc.)
+        const data: any[] = Array.isArray(raw)
+          ? raw
+          : raw?.results ?? raw?.data ?? [];
+
+        if (!Array.isArray(data)) {
+          console.warn('Unexpected response shape for /casos/:', raw);
+        }
+
+        const mappedCases: FileItem[] = data.map((caso: any) => ({
+          id: caso.oid_caso?.toString() ?? `case-${Date.now()}`,
+          name: caso.titulo || 'Sin título',
           type: 'file',
           parentId: 'root', // Flat structure for now or categorized by type
           caseNumber: caso.numero_expediente || '0',
-          uploadDate: caso.fecha_inicio || '0',
+          uploadDate: caso.fecha_inicio || new Date().toISOString().split('T')[0],
           size: '0 KB', // Not in current backend model
           status: (caso.estado_nombre as any) || 'Pendiente'
         }));
-        
+
         // Optionally create folders based on TipoCaso
-        const uniqueTypes = Array.from(new Set(data.map(c => c.tipo_caso_nombre)));
-        const typeFolders: FolderItem[] = uniqueTypes.map((type, idx) => ({
+        const uniqueTypes = Array.from(new Set((data || []).map((c: any) => c.tipo_caso_nombre)));
+        const typeFolders: FolderItem[] = uniqueTypes.map((type: any, idx: number) => ({
           id: `folder-${idx}`,
           name: type || 'Sin Categoría',
           type: 'folder',
@@ -80,8 +91,8 @@ export function LegalCaseManager({ userTier }: LegalCaseManagerProps) {
 
         // Re-parent cases to their type folders
         mappedCases.forEach(c => {
-          const original = data.find(oc => oc.oid_caso.toString() === c.id);
-          const folder = typeFolders.find(f => f.name === original.tipo_caso_nombre);
+          const original = (data || []).find((oc: any) => oc.oid_caso?.toString() === c.id);
+          const folder = typeFolders.find(f => f.name === original?.tipo_caso_nombre);
           if (folder) c.parentId = folder.id;
         });
 
@@ -94,11 +105,15 @@ export function LegalCaseManager({ userTier }: LegalCaseManagerProps) {
     };
     fetchCasos();
   }, []);
-
+  
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [newCaseName, setNewCaseName] = useState('');
   const [newCaseNumber, setNewCaseNumber] = useState('');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedCaseType, setSelectedCaseType] = useState('1');
+  const [selectedCaseState, setSelectedCaseState] = useState('1');
+  const [uploading, setUploading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<'Todos' | 'Civil' | 'Penal' | 'Laboral' | 'Corporativo'>('Todos');
   const [statusFilter, setStatusFilter] = useState<'Todos' | 'Activo' | 'Cerrado' | 'Pendiente' | 'Histórico' | 'Archivado'>('Todos');
@@ -109,8 +124,10 @@ export function LegalCaseManager({ userTier }: LegalCaseManagerProps) {
   const itemsPerPage = 10;
   const [viewingDocument, setViewingDocument] = useState<FileItem | null>(null);
 
+  const { user } = useAuth();
   const isPremiumUser = userTier === 'Profesional' || userTier === 'Empresa' || userTier === 'Administrador';
-
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
   // Get current folder path (breadcrumb)
   const getBreadcrumbPath = () => {
     const path: FolderItem[] = [];
@@ -170,43 +187,157 @@ export function LegalCaseManager({ userTier }: LegalCaseManagerProps) {
     const endIndex = startIndex + itemsPerPage;
     return sortedItems.slice(startIndex, endIndex);
   }, [sortedItems, currentPage]);
+const loadCasos = async () => {
+    try {
+      const raw = await api.get<any>('/casos/');
+      const data: any[] = Array.isArray(raw) ? raw : raw?.results ?? raw?.data ?? [];
 
+      const mappedCases: FileItem[] = data.map((caso: any) => ({
+        id: caso.oid_caso?.toString() ?? `case-${Date.now()}`,
+        name: caso.titulo || 'Sin título',
+        type: 'file',
+        parentId: 'root',
+        caseNumber: caso.numero_expediente || '0',
+        uploadDate: caso.fecha_inicio || new Date().toISOString().split('T')[0],
+        size: '0 KB',
+        status: (caso.estado_nombre as any) || 'Pendiente'
+      }));
+
+      const uniqueTypes = Array.from(new Set((data || []).map((c: any) => c.tipo_caso_nombre)));
+      const typeFolders: FolderItem[] = uniqueTypes.map((type: any, idx: number) => ({
+        id: `folder-${idx}`,
+        name: type || 'Sin Categoría',
+        type: 'folder',
+        parentId: null
+      }));
+
+      mappedCases.forEach(c => {
+        const original = (data || []).find((oc: any) => oc.oid_caso?.toString() === c.id);
+        const folder = typeFolders.find(f => f.name === original?.tipo_caso_nombre);
+        if (folder) c.parentId = folder.id;
+      });
+
+      setItems([...typeFolders, ...mappedCases]);
+    } catch (error) {
+      console.error('Error fetching cases:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Se ejecuta solo una vez al cargar el componente
+  useEffect(() => {
+    loadCasos();
+  }, []);
+  
   // Reset to page 1 when filters change
   useMemo(() => {
     setCurrentPage(1);
   }, [searchQuery, statusFilter, startDate, endDate, currentFolderId]);
-
-  const handleUpload = () => {
+  const resetForm = () => {
+    setNewCaseName('');
+    setNewCaseNumber('');
+    setSelectedFile(null);
+    setSelectedCaseType('1');
+    setSelectedCaseState('1');
+    setUploadError(null);
+    setUploadProgress(0);
+  };
+  const handleUpload = async () => {
     if (!isPremiumUser) {
       alert('Necesita un plan Premium o superior para subir casos legales. Por favor, actualice su plan.');
       return;
     }
-    if (newCaseName && newCaseNumber) {
+
+    if (!newCaseName || !newCaseNumber || !selectedFile) {
+      alert('Por favor complete el nombre del caso, número de caso y seleccione un archivo PDF.');
+      return;
+    }
+
+    if (!user) {
+      alert('No se encontró el usuario. Por favor cierre sesión e inicie sesión de nuevo.');
+      return;
+    }
+
+    setUploading(true);
+
+    try {
+      const formData = new FormData();
+      formData.append('oid_abogado', user.oid_usuario.toString());
+      formData.append('oid_tipo_caso', selectedCaseType.toString());
+      formData.append('oid_estado', selectedCaseState.toString());
+      formData.append('titulo', newCaseName);
+      formData.append('numero_expediente', newCaseNumber);
+      formData.append('fecha_inicio', new Date().toISOString().split('T')[0]);
+      formData.append('archivo_pdf', selectedFile, selectedFile.name);
+
+      const createdCase = await api.postForm<any>('/casos/', formData);
+
       const newFile: FileItem = {
-        id: `file-${Date.now()}`,
+        id: createdCase?.oid_caso?.toString() ?? `file-${Date.now()}`,
         name: newCaseName,
         type: 'file',
         parentId: currentFolderId || 'root',
         caseNumber: newCaseNumber,
-        uploadDate: new Date().toISOString().split('T')[0],
-        size: '1.5 MB',
-        status: 'Activo'
+        uploadDate: createdCase?.fecha_inicio || new Date().toISOString().split('T')[0],
+        size: `${Math.round(selectedFile.size / 1024)} KB`,
+        status: createdCase?.estado_nombre || 'Activo'
       };
+
       setItems([...items, newFile]);
       setNewCaseName('');
       setNewCaseNumber('');
+      setSelectedFile(null);
+      setSelectedCaseType('1');
+      setSelectedCaseState('1');
       setIsUploadOpen(false);
+      setTimeout(async () => {
+        await loadCasos(); // Vuelve a pedir los datos frescos al backend de forma invisible
+        resetForm();
+        setIsUploadOpen(false);
+      }, 500);
+    } catch (error) {
+      console.error('Error subiendo caso:', error);
+      alert('No se pudo subir el caso. Revise la consola y vuelva a intentarlo.');
+    } finally {
+      setUploading(false);
     }
   };
 
-  const handleDownload = (file: FileItem) => {
-    if (!isPremiumUser) {
-      alert('Necesita un plan Premium o superior para descargar casos legales. Por favor, actualice su plan.');
-      return;
-    }
-    console.log('Descargando caso:', file.name);
-    alert(`Descargando: ${file.name}`);
-  };
+const handleDownload = async (file: FileItem) => {
+  if (!isPremiumUser) {
+    alert('Necesita un plan Premium o superior para descargar casos.');
+    return;
+  }
+
+  setDownloadingId(file.id);
+
+  try {
+
+    const { blob, filename } = await api.getFile(`/casos/${file.id}/descargar-documento/`);
+    
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    
+    a.download = filename && filename !== 'documento.pdf' ? filename : `${file.caseNumber}.pdf`;
+
+    document.body.appendChild(a);
+
+    a.click(); // Disparamos la descarga
+    
+    // Limpiamos la memoria y el DOM
+    a.remove();
+    window.URL.revokeObjectURL(url);
+
+  } catch (error) {
+    console.error('Error al descargar:', error);
+    // Puedes usar un toast aquí, o un alert si prefieres
+    alert('No se pudo descargar el documento. Es posible que el archivo ya no exista.');
+  } finally {
+    setDownloadingId(null);
+  }
+};
 
   const handleView = (file: FileItem) => {
     setViewingDocument(file);
@@ -324,20 +455,54 @@ export function LegalCaseManager({ userTier }: LegalCaseManagerProps) {
                   onChange={(e) => setNewCaseNumber(e.target.value)}
                 />
               </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="case-type">Tipo de Caso</Label>
+                  <Select value={selectedCaseType} onValueChange={(value) => setSelectedCaseType(value)}>
+                    <SelectTrigger id="case-type">
+                      <SelectValue placeholder="Seleccione tipo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">Civil</SelectItem>
+                      <SelectItem value="2">Penal</SelectItem>
+                      <SelectItem value="3">Laboral</SelectItem>
+                      <SelectItem value="4">Corporativo</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="case-state">Estado</Label>
+                  <Select value={selectedCaseState} onValueChange={(value) => setSelectedCaseState(value)}>
+                    <SelectTrigger id="case-state">
+                      <SelectValue placeholder="Seleccione estado" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">Vigente</SelectItem>
+                      <SelectItem value="2">Histórico</SelectItem>
+                      <SelectItem value="3">Derogado</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
               <div className="space-y-2">
-                <Label htmlFor="file-upload">Documentos del Caso</Label>
+                <Label htmlFor="file-upload">Documento PDF del Caso</Label>
                 <Input
                   id="file-upload"
                   type="file"
-                  multiple
-                  accept=".pdf,.doc,.docx"
+                  accept=".pdf"
+                  onChange={(e) => setSelectedFile(e.target.files?.[0] ?? null)}
                 />
+                {selectedFile && (
+                  <p className="text-sm text-gray-600">Archivo seleccionado: {selectedFile.name}</p>
+                )}
               </div>
               <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setIsUploadOpen(false)}>
+                <Button variant="outline" onClick={() => setIsUploadOpen(false)} disabled={uploading}>
                   Cancelar
                 </Button>
-                <Button onClick={handleUpload}>Subir</Button>
+                <Button onClick={handleUpload} disabled={uploading}>
+                  {uploading ? 'Subiendo...' : 'Subir'}
+                </Button>
               </div>
             </div>
           </DialogContent>
@@ -714,6 +879,7 @@ export function LegalCaseManager({ userTier }: LegalCaseManagerProps) {
           documentCode={viewingDocument.caseNumber}
           documentType="case"
           onClose={() => setViewingDocument(null)}
+          onDownload={() => handleDownload(viewingDocument)}
         />
       )}
     </div>

@@ -60,23 +60,29 @@ export function LegalCodeManager({ userTier }: LegalCodeManagerProps) {
   useEffect(() => {
     const fetchCodigos = async () => {
       try {
-        const data = await api.get<any[]>('/codigos/');
-        const mappedCodes: FileItem[] = data.map(codigo => ({
-          id: codigo.oid_codigo.toString(),
-          name: codigo.nombre_norma || '0',
+        const raw = await api.get<any>('/codigos/');
+        const data: any[] = Array.isArray(raw) ? raw : raw?.results ?? raw?.data ?? [];
+
+        if (!Array.isArray(data)) {
+          console.warn('Unexpected response shape for /codigos/:', raw);
+        }
+
+        const mappedCodes: FileItem[] = (data || []).map((codigo: any) => ({
+          id: codigo.oid_codigo?.toString() ?? `code-${Date.now()}`,
+          name: codigo.nombre_norma || 'Sin Nombre',
           type: 'file',
           parentId: 'root',
           code: codigo.numero_articulo || '0',
-          jurisdiction: 'Federal', // Default
-          uploadDate: new Date().toISOString().split('T')[0], // Mock date
+          jurisdiction: codigo.jurisdiccion || 'Federal',
+          uploadDate: codigo.fecha_publicacion || new Date().toISOString().split('T')[0],
           size: '0 KB',
-          category: 'Civil', // Default as not in backend model yet
+          category: (codigo.categoria as any) || 'Civil',
           status: (codigo.estado_vigencia as any) || 'Vigente'
         }));
 
         // Grouping by norm name as "folders"
-        const uniqueNorms = Array.from(new Set(data.map(c => c.nombre_norma)));
-        const normFolders: FolderItem[] = uniqueNorms.map((norm, idx) => ({
+        const uniqueNorms = Array.from(new Set((data || []).map((c: any) => c.nombre_norma)));
+        const normFolders: FolderItem[] = uniqueNorms.map((norm: any, idx: number) => ({
           id: `norm-folder-${idx}`,
           name: norm || 'Sin Nombre',
           type: 'folder',
@@ -85,8 +91,8 @@ export function LegalCodeManager({ userTier }: LegalCodeManagerProps) {
 
         // Re-parent articles to their norm folders
         mappedCodes.forEach(c => {
-          const original = data.find(oc => oc.oid_codigo.toString() === c.id);
-          const folder = normFolders.find(f => f.name === original.nombre_norma);
+          const original = (data || []).find((oc: any) => oc.oid_codigo?.toString() === c.id);
+          const folder = normFolders.find(f => f.name === original?.nombre_norma);
           if (folder) c.parentId = folder.id;
         });
 

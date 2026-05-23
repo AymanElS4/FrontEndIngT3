@@ -16,9 +16,10 @@ interface DocumentViewerProps {
   documentCode?: string;
   documentType: 'case' | 'code';
   onClose: () => void;
+  onDownload?: () => void; 
 }
 
-export function DocumentViewer({ documentName, documentCode, documentType, onClose }: DocumentViewerProps) {
+export function DocumentViewer({ documentName, documentCode, documentType, onClose, onDownload }: DocumentViewerProps) {
   const [activeSection, setActiveSection] = useState<string>('section-1');
 
   // Mock document sections based on type
@@ -198,7 +199,7 @@ export function DocumentViewer({ documentName, documentCode, documentType, onClo
             <span>{sections.length} secciones</span>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" onClick={onDownload}>
               Descargar PDF
             </Button>
             <Button variant="outline" size="sm">
