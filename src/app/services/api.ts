@@ -45,12 +45,12 @@ async function request<T>(endpoint: string, options: RequestOptions = {}): Promi
 
 export const api = {
   get: <T>(url: string) => request<T>(url, { method: 'GET' }),
-  post: <T>(url: string, data: any) => request<T>(url, { method: 'POST', body: JSON.stringify(data) }),
+  post: <T>(url: string, data: unknown) => request<T>(url, { method: 'POST', body: JSON.stringify(data) }),
   postForm: <T>(url: string, form: FormData) => request<T>(url, { method: 'POST', body: form }),
-  put: <T>(url: string, data: any) => request<T>(url, { method: 'PUT', body: JSON.stringify(data) }),
+  put: <T>(url: string, data: unknown) => request<T>(url, { method: 'PUT', body: JSON.stringify(data) }),
   delete: <T>(url: string) => request<T>(url, { method: 'DELETE' }),
 
-getFile: async (endpoint: string) => {
+  getFile: async (endpoint: string) => {
     const token = localStorage.getItem('access_token');
     const response = await fetch(`${API_BASE}${endpoint}`, {
       method: 'GET',
@@ -68,7 +68,7 @@ getFile: async (endpoint: string) => {
     if (disposition && disposition.indexOf('attachment') !== -1) {
       const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/;
       const matches = filenameRegex.exec(disposition);
-      if (matches != null && matches[1]) {
+      if (matches !== null && matches[1]) {
         filename = matches[1].replace(/['"]/g, '');
       }
     }
