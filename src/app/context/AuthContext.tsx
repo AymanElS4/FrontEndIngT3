@@ -1,6 +1,14 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { api } from '../services/api';
 
+interface LoginResponse {
+  tokens: {
+    access: string;
+    refresh: string;
+  };
+  user: User;
+}
+
 interface User {
   oid_usuario: number;
   nombre: string;
@@ -34,6 +42,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const userData = await api.get<User>('/auth/me/');
           setUser(userData);
         } catch (error) {
+          console.error('Error fetching user data:', error);
           localStorage.removeItem('access_token');
         }
       }
@@ -43,7 +52,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const login = async (email: string, password: string) => {
-    const response = await api.post<any>('/auth/login/', { email, password });
+    const response = await api.post<LoginResponse>('/auth/login/', { email, password });
     localStorage.setItem('access_token', response.tokens.access);
     localStorage.setItem('refresh_token', response.tokens.refresh);
     setUser(response.user);
