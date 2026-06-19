@@ -9,9 +9,6 @@
 
 1. Abrir una terminal en la carpeta del frontend:
 
-```bash
-
-```
 
 2. Instalar dependencias:
 

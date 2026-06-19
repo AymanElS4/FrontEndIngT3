@@ -167,50 +167,6 @@ export function PaymentPage({ selectedPlan, onConfirm, onBack }: PaymentPageProp
                       required
                     />
                   </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="cardNumber">Número de Tarjeta *</Label>
-                    <Input
-                      id="cardNumber"
-                      placeholder="1234 5678 9012 3456"
-                      value={formData.cardNumber}
-                      onChange={(e) => {
-                        const formatted = formatCardNumber(e.target.value.slice(0, 19));
-                        setFormData({ ...formData, cardNumber: formatted });
-                      }}
-                      maxLength={19}
-                      required
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="expiryDate">Fecha de Expiración *</Label>
-                      <Input
-                        id="expiryDate"
-                        placeholder="MM/AA"
-                        value={formData.expiryDate}
-                        onChange={(e) => {
-                          const formatted = formatExpiryDate(e.target.value);
-                          setFormData({ ...formData, expiryDate: formatted });
-                        }}
-                        maxLength={5}
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="cvv">CVV *</Label>
-                      <Input
-                        id="cvv"
-                        type="password"
-                        placeholder="123"
-                        value={formData.cvv}
-                        onChange={(e) => setFormData({ ...formData, cvv: e.target.value.slice(0, 4) })}
-                        maxLength={4}
-                        required
-                      />
-                    </div>
-                  </div>
                 </div>
 
                 {/* Billing Information */}
@@ -228,17 +184,16 @@ export function PaymentPage({ selectedPlan, onConfirm, onBack }: PaymentPageProp
                         required
                       />
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="city">Ciudad *</Label>
-                        <Input
-                          id="city"
-                          placeholder="Ciudad de México"
-                          value={formData.city}
-                          onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                          required
-                        />
-                      </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="city">Ciudad *</Label>
+                      <Input
+                        id="city"
+                        placeholder="Ciudad de México"
+                        value={formData.city}
+                        onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                        required
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="country">País *</Label>
