@@ -10,7 +10,7 @@
 1. Abrir una terminal en la carpeta del frontend:
 
 ```bash
-cd "c:\Users\Ayman El Salous Mnz\OneDrive\Desktop\FrontEndIng\FrontEndIng"
+
 ```
 
 2. Instalar dependencias:

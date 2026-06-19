@@ -228,18 +228,6 @@ export function PaymentPage({ selectedPlan, onConfirm, onBack }: PaymentPageProp
                         required
                       />
                     </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="billingAddress">Dirección *</Label>
-                      <Input
-                        id="billingAddress"
-                        placeholder="Calle y número"
-                        value={formData.billingAddress}
-                        onChange={(e) => setFormData({ ...formData, billingAddress: e.target.value })}
-                        required
-                      />
-                    </div>
-
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="city">Ciudad *</Label>
@@ -251,19 +239,7 @@ export function PaymentPage({ selectedPlan, onConfirm, onBack }: PaymentPageProp
                           required
                         />
                       </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="zipCode">Código Postal *</Label>
-                        <Input
-                          id="zipCode"
-                          placeholder="06600"
-                          value={formData.zipCode}
-                          onChange={(e) => setFormData({ ...formData, zipCode: e.target.value.slice(0, 5) })}
-                          maxLength={5}
-                          required
-                        />
-                      </div>
                     </div>
-
                     <div className="space-y-2">
                       <Label htmlFor="country">País *</Label>
                       <Input
