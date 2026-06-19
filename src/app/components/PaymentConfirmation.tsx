@@ -22,36 +22,36 @@ export function PaymentConfirmation({ plan, onGoHome }: PaymentConfirmationProps
 
   return (
     <div className="max-w-2xl mx-auto py-12">
-      <Card className="border-2 border-green-200">
+      <Card className="border-2 border-blue-200">
         <CardContent className="pt-6">
           <div className="text-center space-y-6">
             {/* Success Icon */}
             <div className="flex justify-center">
-              <div className="bg-green-100 rounded-full p-6">
-                <CheckCircle className="w-16 h-16 text-green-600" />
+              <div className="bg-blue-50 rounded-full p-6">
+                <CheckCircle className="w-16 h-16 text-blue-600" />
               </div>
             </div>
 
             {/* Success Message */}
             <div>
-              <h2 className="text-3xl text-gray-900 mb-2">¡Pago Exitoso!</h2>
+              <h2 className="text-3xl text-gray-900 mb-2">¡Solicitud Recibida!</h2>
               <p className="text-gray-600 text-lg">
-                Su suscripción ha sido procesada correctamente
+                Su solicitud de suscripción está siendo procesada
               </p>
             </div>
 
             {/* Transaction Details */}
             <div className="bg-gray-50 rounded-lg p-6 space-y-3 text-left">
               <div className="flex justify-between items-center border-b pb-3">
-                <span className="text-gray-600">Plan Suscrito</span>
+                <span className="text-gray-600">Plan Solicitado</span>
                 <span className="text-gray-900">{plan.name}</span>
               </div>
               <div className="flex justify-between items-center border-b pb-3">
-                <span className="text-gray-600">Monto Pagado</span>
+                <span className="text-gray-600">Monto del Plan</span>
                 <span className="text-gray-900">{plan.price}</span>
               </div>
               <div className="flex justify-between items-center border-b pb-3">
-                <span className="text-gray-600">ID de Transacción</span>
+                <span className="text-gray-600">ID de Solicitud</span>
                 <span className="text-gray-900 font-mono text-sm">{transactionId}</span>
               </div>
               <div className="flex justify-between items-center">
@@ -63,13 +63,13 @@ export function PaymentConfirmation({ plan, onGoHome }: PaymentConfirmationProps
             {/* Confirmation Message */}
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-left">
               <div className="flex items-start gap-3">
-                <Mail className="w-5 h-5 text-blue-600 mt-0.5" />
+                <Mail className="w-5 h-5 text-blue-600 mt-0.5 animate-pulse" />
                 <div className="text-sm">
-                  <p className="text-blue-900 mb-1">
-                    Se ha enviado un correo de confirmación con los detalles de su suscripción.
+                  <p className="text-blue-900 mb-1 font-semibold">
+                    Se ha enviado una notificación de confirmación a su cuenta de LegalFileManager.
                   </p>
                   <p className="text-blue-700">
-                    Su plan estará activo inmediatamente y podrá disfrutar de todas las funciones premium.
+                    Un representante de nuestro equipo de facturación le contactará próximamente al correo electrónico registrado (ejemplo de contacto: <strong>pagos@legalfilemanager.com</strong>) para indicarle los pasos necesarios para realizar su pago. Su plan se activará inmediatamente una vez confirmado.
                   </p>
                 </div>
               </div>

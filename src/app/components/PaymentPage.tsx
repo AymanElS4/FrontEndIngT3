@@ -5,6 +5,7 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Badge } from './ui/badge';
 import { CreditCard, Lock, ArrowLeft } from 'lucide-react';
+import { api } from '../services/api';
 
 interface PaymentPageProps {
   selectedPlan: {
@@ -28,13 +29,38 @@ export function PaymentPage({ selectedPlan, onConfirm, onBack }: PaymentPageProp
     zipCode: '',
     country: ''
   });
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Simulate payment processing
-    setTimeout(() => {
+    setIsLoading(false);
+    setError(null);
+    setIsLoading(true);
+
+    let oid_plan = 1;
+    if (selectedPlan.name === 'Profesional') {
+      oid_plan = 2;
+    } else if (selectedPlan.name === 'Empresarial') {
+      oid_plan = 3;
+    }
+
+    const monto = parseFloat(selectedPlan.price.replace('$', '')) || 0;
+
+    try {
+      await api.post('/pagos/', {
+        oid_plan: oid_plan,
+        monto: monto,
+        metodo_pago: 'Tarjeta de Crédito/Débito',
+        estado_pago: 'Pendiente',
+        referencia_externa: `SOL-${Date.now().toString().slice(-6)}`
+      });
       onConfirm();
-    }, 1000);
+    } catch (err) {
+      setError((err as Error).message || 'No se pudo procesar la solicitud del plan.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const formatCardNumber = (value: string) => {
@@ -251,13 +277,29 @@ export function PaymentPage({ selectedPlan, onConfirm, onBack }: PaymentPageProp
                   </div>
                 </div>
 
+                {error && (
+                  <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    {error}
+                  </div>
+                )}
+
                 <div className="flex gap-4 pt-4">
-                  <Button type="button" variant="outline" onClick={onBack} className="flex-1">
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={onBack} 
+                    className="flex-1"
+                    disabled={isLoading}
+                  >
                     Cancelar
                   </Button>
-                  <Button type="submit" className="flex-1 gap-2">
+                  <Button 
+                    type="submit" 
+                    className="flex-1 gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+                    disabled={isLoading}
+                  >
                     <Lock className="w-4 h-4" />
-                    Confirmar Pago
+                    {isLoading ? 'Procesando...' : 'Confirmar Pago'}
                   </Button>
                 </div>
               </form>
