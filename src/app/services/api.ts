@@ -48,6 +48,7 @@ export const api = {
   post: <T>(url: string, data: unknown) => request<T>(url, { method: 'POST', body: JSON.stringify(data) }),
   postForm: <T>(url: string, form: FormData) => request<T>(url, { method: 'POST', body: form }),
   put: <T>(url: string, data: unknown) => request<T>(url, { method: 'PUT', body: JSON.stringify(data) }),
+  patch: <T>(url: string, data: unknown) => request<T>(url, { method: 'PATCH', body: JSON.stringify(data) }),
   delete: <T>(url: string) => request<T>(url, { method: 'DELETE' }),
 
   getFile: async (endpoint: string) => {

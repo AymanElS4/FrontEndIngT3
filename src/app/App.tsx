@@ -45,6 +45,11 @@ export default function App() {
     setShowAdminLogin(false);
   };
 
+  const handleLoginSuccess = () => {
+    setShowAdminLogin(false);
+    setActiveSection('home');
+  };
+
   const handleSelectPlan = (plan: SelectedPlan) => {
     setSelectedPlan(plan);
     setActiveSection('payment');
@@ -69,9 +74,9 @@ export default function App() {
 
   if (!isLoggedIn) {
     if (showAdminLogin) {
-      return <AdminLoginPage onLogin={() => {}} onBackToUserLogin={handleBackToUserLogin} />;
+      return <AdminLoginPage onLogin={handleLoginSuccess} onBackToUserLogin={handleBackToUserLogin} />;
     }
-    return <LoginPage onLogin={() => {}} onShowAdminLogin={handleShowAdminLogin} />;
+    return <LoginPage onLogin={handleLoginSuccess} onShowAdminLogin={handleShowAdminLogin} />;
   }
 
   return (

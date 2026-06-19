@@ -115,11 +115,7 @@ export function AccountSection({ onNavigateToSubscription, userTier, onTierChang
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="firm" className="flex items-center gap-2">
-                  <Building className="w-4 h-4" />
-                  Firma Legal
-                </Label>
-                <Input id="firm" defaultValue={accountData.firm} />
+                {/* Removed "Firma Legal" per request */}
               </div>
             </div>
 
