@@ -56,6 +56,9 @@ export function LegalCodeManager({ userTier }: LegalCodeManagerProps) {
   // State for items from backend
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   const loadCodigos = async () => {
     try {
@@ -196,32 +199,54 @@ export function LegalCodeManager({ userTier }: LegalCodeManagerProps) {
       return;
     }
     if (newCodeTitle && newCodeNumber) {
+      setUploading(true);
       try {
-        const payload = {
-          nombre_norma: newCodeTitle,
-          numero_articulo: newCodeNumber,
-          texto_contenido: `Contenido de la norma ${newCodeTitle}, artículo ${newCodeNumber}.`,
-          vigencia: true
-        };
-        await api.post('/codigos/', payload);
+        const formData = new FormData();
+        formData.append('nombre_norma', newCodeTitle);
+        formData.append('numero_articulo', newCodeNumber);
+        formData.append('texto_contenido', `Contenido de la norma ${newCodeTitle}, artículo ${newCodeNumber}.`);
+        formData.append('vigencia', 'true');
+        if (selectedFile) {
+          formData.append('archivo_pdf', selectedFile, selectedFile.name);
+        }
+
+        await api.postForm('/codigos/', formData);
         await loadCodigos();
         setNewCodeTitle('');
         setNewCodeNumber('');
+        setSelectedFile(null);
         setIsUploadOpen(false);
       } catch (error) {
         console.error('Error uploading code:', error);
         alert('No se pudo subir el código legal: ' + (error as Error).message);
+      } finally {
+        setUploading(false);
       }
     }
   };
 
-  const handleDownload = (file: FileItem) => {
+  const handleDownload = async (file: FileItem) => {
     if (!isPremiumUser) {
       alert('Necesita un plan Premium o superior para descargar códigos legales. Por favor, actualice su plan.');
       return;
     }
-    console.log('Descargando código:', file.name);
-    alert(`Descargando: ${file.name}`);
+    setDownloadingId(file.id);
+    try {
+      const { blob, filename } = await api.getFile(`/codigos/${file.id}/descargar-documento/`);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename && filename !== 'documento.pdf' ? filename : `${file.name}_Art_${file.code}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error al descargar:', error);
+      alert('No se pudo descargar el documento. Es posible que el archivo no exista o no esté en formato PDF.');
+    } finally {
+      setDownloadingId(null);
+    }
   };
 
   const handleView = (file: FileItem) => {
@@ -364,14 +389,22 @@ export function LegalCodeManager({ userTier }: LegalCodeManagerProps) {
                 <Input
                   id="file-upload"
                   type="file"
-                  accept=".pdf,.doc,.docx"
+                  accept=".pdf"
+                  onChange={(e) => setSelectedFile(e.target.files?.[0] ?? null)}
                 />
+                {selectedFile && (
+                  <p className="text-sm text-gray-600 font-medium">
+                    Archivo seleccionado: {selectedFile.name}
+                  </p>
+                )}
               </div>
               <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setIsUploadOpen(false)}>
+                <Button variant="outline" onClick={() => { setIsUploadOpen(false); setSelectedFile(null); }} disabled={uploading}>
                   Cancelar
                 </Button>
-                <Button onClick={handleUpload}>Subir</Button>
+                <Button onClick={handleUpload} disabled={uploading}>
+                  {uploading ? 'Subiendo...' : 'Subir'}
+                </Button>
               </div>
             </div>
           </DialogContent>
@@ -672,7 +705,7 @@ export function LegalCodeManager({ userTier }: LegalCodeManagerProps) {
                                     size="sm"
                                     onClick={() => handleDownload(file)}
                                     title="Descargar"
-                                    disabled={!isPremiumUser}
+                                    disabled={!isPremiumUser || downloadingId === file.id}
                                   >
                                     {!isPremiumUser ? <Lock className="w-4 h-4" /> : <Download className="w-4 h-4" />}
                                   </Button>
@@ -758,6 +791,7 @@ export function LegalCodeManager({ userTier }: LegalCodeManagerProps) {
           documentCode={viewingDocument.code}
           documentType="code"
           onClose={() => setViewingDocument(null)}
+          onDownload={() => handleDownload(viewingDocument)}
         />
       )}
     </div>
