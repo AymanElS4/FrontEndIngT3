@@ -787,6 +787,7 @@ export function LegalCodeManager({ userTier }: LegalCodeManagerProps) {
       {/* Document Viewer */}
       {viewingDocument && (
         <DocumentViewer
+          documentId={viewingDocument.id}
           documentName={viewingDocument.name}
           documentCode={viewingDocument.code}
           documentType="code"

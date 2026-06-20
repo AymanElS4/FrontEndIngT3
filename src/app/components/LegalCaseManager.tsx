@@ -885,6 +885,7 @@ const handleDownload = async (file: FileItem) => {
       {/* Document Viewer */}
       {viewingDocument && (
         <DocumentViewer
+          documentId={viewingDocument.id}
           documentName={viewingDocument.name}
           documentCode={viewingDocument.caseNumber}
           documentType="case"
