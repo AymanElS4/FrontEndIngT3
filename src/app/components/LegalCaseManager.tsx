@@ -343,8 +343,16 @@ const handleDownload = async (file: FileItem) => {
     setViewingDocument(file);
   };
 
-  const handleDelete = (id: string) => {
-    setItems(items.filter(item => item.id !== id));
+  const handleDelete = async (id: string) => {
+    if (confirm('¿Está seguro de que desea eliminar este caso?')) {
+      try {
+        await api.delete(`/casos/${id}/`);
+        await loadCasos();
+      } catch (error) {
+        console.error('Error al eliminar caso:', error);
+        alert('No se pudo eliminar el caso: ' + (error as Error).message);
+      }
+    }
   };
 
   const handleOpenFolder = (folderId: string) => {
@@ -477,9 +485,11 @@ const handleDownload = async (file: FileItem) => {
                       <SelectValue placeholder="Seleccione estado" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="1">Vigente</SelectItem>
-                      <SelectItem value="2">Histórico</SelectItem>
-                      <SelectItem value="3">Derogado</SelectItem>
+                      <SelectItem value="1">Pendiente</SelectItem>
+                      <SelectItem value="2">Activo</SelectItem>
+                      <SelectItem value="3">Cerrado</SelectItem>
+                      <SelectItem value="4">Histórico</SelectItem>
+                      <SelectItem value="5">Archivado</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

@@ -57,53 +57,54 @@ export function LegalCodeManager({ userTier }: LegalCodeManagerProps) {
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchCodigos = async () => {
-      try {
-        const raw = await api.get<any>('/codigos/');
-        const data: any[] = Array.isArray(raw) ? raw : raw?.results ?? raw?.data ?? [];
+  const loadCodigos = async () => {
+    try {
+      const raw = await api.get<any>('/codigos/');
+      const data: any[] = Array.isArray(raw) ? raw : raw?.results ?? raw?.data ?? [];
 
-        if (!Array.isArray(data)) {
-          console.warn('Unexpected response shape for /codigos/:', raw);
-        }
-
-        const mappedCodes: FileItem[] = (data || []).map((codigo: any) => ({
-          id: codigo.oid_codigo?.toString() ?? `code-${Date.now()}`,
-          name: codigo.nombre_norma || 'Sin Nombre',
-          type: 'file',
-          parentId: 'root',
-          code: codigo.numero_articulo || '0',
-          jurisdiction: codigo.jurisdiccion || 'Federal',
-          uploadDate: codigo.fecha_publicacion || new Date().toISOString().split('T')[0],
-          size: '0 KB',
-          category: (codigo.categoria as any) || 'Civil',
-          status: (codigo.estado_vigencia as any) || 'Vigente'
-        }));
-
-        // Grouping by norm name as "folders"
-        const uniqueNorms = Array.from(new Set((data || []).map((c: any) => c.nombre_norma)));
-        const normFolders: FolderItem[] = uniqueNorms.map((norm: any, idx: number) => ({
-          id: `norm-folder-${idx}`,
-          name: norm || 'Sin Nombre',
-          type: 'folder',
-          parentId: null
-        }));
-
-        // Re-parent articles to their norm folders
-        mappedCodes.forEach(c => {
-          const original = (data || []).find((oc: any) => oc.oid_codigo?.toString() === c.id);
-          const folder = normFolders.find(f => f.name === original?.nombre_norma);
-          if (folder) c.parentId = folder.id;
-        });
-
-        setItems([...normFolders, ...mappedCodes]);
-      } catch (error) {
-        console.error('Error fetching codes:', error);
-      } finally {
-        setLoading(false);
+      if (!Array.isArray(data)) {
+        console.warn('Unexpected response shape for /codigos/:', raw);
       }
-    };
-    fetchCodigos();
+
+      const mappedCodes: FileItem[] = (data || []).map((codigo: any) => ({
+        id: codigo.oid_codigo?.toString() ?? `code-${Date.now()}`,
+        name: codigo.nombre_norma || 'Sin Nombre',
+        type: 'file',
+        parentId: 'root',
+        code: codigo.numero_articulo || '0',
+        jurisdiction: codigo.jurisdiccion || 'Federal',
+        uploadDate: codigo.fecha_publicacion || new Date().toISOString().split('T')[0],
+        size: '0 KB',
+        category: (codigo.categoria as any) || 'Civil',
+        status: (codigo.estado_vigencia as any) || 'Vigente'
+      }));
+
+      // Grouping by norm name as "folders"
+      const uniqueNorms = Array.from(new Set((data || []).map((c: any) => c.nombre_norma)));
+      const normFolders: FolderItem[] = uniqueNorms.map((norm: any, idx: number) => ({
+        id: `norm-folder-${idx}`,
+        name: norm || 'Sin Nombre',
+        type: 'folder',
+        parentId: null
+      }));
+
+      // Re-parent articles to their norm folders
+      mappedCodes.forEach(c => {
+        const original = (data || []).find((oc: any) => oc.oid_codigo?.toString() === c.id);
+        const folder = normFolders.find(f => f.name === original?.nombre_norma);
+        if (folder) c.parentId = folder.id;
+      });
+
+      setItems([...normFolders, ...mappedCodes]);
+    } catch (error) {
+      console.error('Error fetching codes:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadCodigos();
   }, []);
 
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
@@ -189,28 +190,28 @@ export function LegalCodeManager({ userTier }: LegalCodeManagerProps) {
     setCurrentPage(1);
   }, [searchQuery, categoryFilter, statusFilter, startDate, endDate, currentFolderId]);
 
-  const handleUpload = () => {
+  const handleUpload = async () => {
     if (!isPremiumUser) {
       alert('Necesita un plan Premium o superior para subir códigos legales. Por favor, actualice su plan.');
       return;
     }
     if (newCodeTitle && newCodeNumber) {
-      const newFile: FileItem = {
-        id: `file-${Date.now()}`,
-        name: newCodeTitle,
-        type: 'file',
-        parentId: currentFolderId || 'root',
-        code: newCodeNumber,
-        jurisdiction: 'Federal',
-        uploadDate: new Date().toISOString().split('T')[0],
-        size: '2.5 MB',
-        category: 'Civil',
-        status: 'Vigente'
-      };
-      setItems([...items, newFile]);
-      setNewCodeTitle('');
-      setNewCodeNumber('');
-      setIsUploadOpen(false);
+      try {
+        const payload = {
+          nombre_norma: newCodeTitle,
+          numero_articulo: newCodeNumber,
+          texto_contenido: `Contenido de la norma ${newCodeTitle}, artículo ${newCodeNumber}.`,
+          vigencia: true
+        };
+        await api.post('/codigos/', payload);
+        await loadCodigos();
+        setNewCodeTitle('');
+        setNewCodeNumber('');
+        setIsUploadOpen(false);
+      } catch (error) {
+        console.error('Error uploading code:', error);
+        alert('No se pudo subir el código legal: ' + (error as Error).message);
+      }
     }
   };
 
@@ -227,8 +228,16 @@ export function LegalCodeManager({ userTier }: LegalCodeManagerProps) {
     setViewingDocument(file);
   };
 
-  const handleDelete = (id: string) => {
-    setItems(items.filter(item => item.id !== id));
+  const handleDelete = async (id: string) => {
+    if (confirm('¿Está seguro de que desea eliminar este código legal?')) {
+      try {
+        await api.delete(`/codigos/${id}/`);
+        await loadCodigos();
+      } catch (error) {
+        console.error('Error deleting code:', error);
+        alert('No se pudo eliminar el código legal: ' + (error as Error).message);
+      }
+    }
   };
 
   const handleOpenFolder = (folderId: string) => {
