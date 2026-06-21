@@ -111,8 +111,10 @@ export function LegalCaseManager({ userTier }: LegalCaseManagerProps) {
   const [newCaseName, setNewCaseName] = useState('');
   const [newCaseNumber, setNewCaseNumber] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [selectedCaseType, setSelectedCaseType] = useState('1');
-  const [selectedCaseState, setSelectedCaseState] = useState('1');
+  const [selectedCaseType, setSelectedCaseType] = useState('');
+  const [selectedCaseState, setSelectedCaseState] = useState('');
+  const [tiposCaso, setTiposCaso] = useState<any[]>([]);
+  const [estadosCaso, setEstadosCaso] = useState<any[]>([]);
   const [uploading, setUploading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<'Todos' | 'Civil' | 'Penal' | 'Laboral' | 'Corporativo'>('Todos');
@@ -227,7 +229,23 @@ const loadCasos = async () => {
 
   // Se ejecuta solo una vez al cargar el componente
   useEffect(() => {
+    const loadMetadata = async () => {
+      try {
+        const resTipos = await api.get<any>('/tipos-caso/');
+        const dataTipos = Array.isArray(resTipos) ? resTipos : resTipos?.results ?? resTipos?.data ?? [];
+        setTiposCaso(dataTipos);
+        if (dataTipos.length > 0) setSelectedCaseType(dataTipos[0].oid_tipo_caso.toString());
+
+        const resEstados = await api.get<any>('/estados-caso/');
+        const dataEstados = Array.isArray(resEstados) ? resEstados : resEstados?.results ?? resEstados?.data ?? [];
+        setEstadosCaso(dataEstados);
+        if (dataEstados.length > 0) setSelectedCaseState(dataEstados[0].oid_estado.toString());
+      } catch (error) {
+        console.error('Error fetching metadata:', error);
+      }
+    };
     loadCasos();
+    loadMetadata();
   }, []);
   
   // Reset to page 1 when filters change
@@ -238,8 +256,10 @@ const loadCasos = async () => {
     setNewCaseName('');
     setNewCaseNumber('');
     setSelectedFile(null);
-    setSelectedCaseType('1');
-    setSelectedCaseState('1');
+    if (tiposCaso.length > 0) setSelectedCaseType(tiposCaso[0].oid_tipo_caso.toString());
+    else setSelectedCaseType('');
+    if (estadosCaso.length > 0) setSelectedCaseState(estadosCaso[0].oid_estado.toString());
+    else setSelectedCaseState('');
     setUploadError(null);
     setUploadProgress(0);
   };
@@ -288,8 +308,10 @@ const loadCasos = async () => {
       setNewCaseName('');
       setNewCaseNumber('');
       setSelectedFile(null);
-      setSelectedCaseType('1');
-      setSelectedCaseState('1');
+      if (tiposCaso.length > 0) setSelectedCaseType(tiposCaso[0].oid_tipo_caso.toString());
+      else setSelectedCaseType('');
+      if (estadosCaso.length > 0) setSelectedCaseState(estadosCaso[0].oid_estado.toString());
+      else setSelectedCaseState('');
       setIsUploadOpen(false);
       setTimeout(async () => {
         await loadCasos(); // Vuelve a pedir los datos frescos al backend de forma invisible
@@ -471,10 +493,11 @@ const handleDownload = async (file: FileItem) => {
                       <SelectValue placeholder="Seleccione tipo" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="1">Civil</SelectItem>
-                      <SelectItem value="2">Penal</SelectItem>
-                      <SelectItem value="3">Laboral</SelectItem>
-                      <SelectItem value="4">Corporativo</SelectItem>
+                      {tiposCaso.map((tipo) => (
+                        <SelectItem key={tipo.oid_tipo_caso} value={tipo.oid_tipo_caso.toString()}>
+                          {tipo.nombre}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -485,11 +508,11 @@ const handleDownload = async (file: FileItem) => {
                       <SelectValue placeholder="Seleccione estado" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="1">Pendiente</SelectItem>
-                      <SelectItem value="2">Activo</SelectItem>
-                      <SelectItem value="3">Cerrado</SelectItem>
-                      <SelectItem value="4">Histórico</SelectItem>
-                      <SelectItem value="5">Archivado</SelectItem>
+                      {estadosCaso.map((estado) => (
+                        <SelectItem key={estado.oid_estado} value={estado.oid_estado.toString()}>
+                          {estado.nombre}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>

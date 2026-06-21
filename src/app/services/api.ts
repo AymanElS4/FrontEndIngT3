@@ -40,6 +40,10 @@ async function request<T>(endpoint: string, options: RequestOptions = {}): Promi
     throw new Error(message);
   }
 
+  // Si la respuesta es 204 No Content (típico en DELETE), no intentamos parsear JSON
+  if (response.status === 204) {
+    return null as unknown as T;
+  }
   return response.json();
 }
 
