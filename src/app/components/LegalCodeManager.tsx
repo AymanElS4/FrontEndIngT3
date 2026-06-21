@@ -258,9 +258,16 @@ export function LegalCodeManager({ userTier }: LegalCodeManagerProps) {
       try {
         await api.delete(`/codigos/${id}/`);
         await loadCodigos();
+        alert('Código legal eliminado correctamente.');
       } catch (error) {
-        console.error('Error deleting code:', error);
-        alert('No se pudo eliminar el código legal: ' + (error as Error).message);
+        const errorMessage = (error as Error).message || '';
+        if (errorMessage.toLowerCase().includes('json') || errorMessage.toLowerCase().includes('end of input')) {
+          console.log('Validación: Borrado exitoso en Neon (Estado 204 sin JSON). Actualizando interfaz...');
+          await loadCodigos();
+        } else {
+          console.error('Error real eliminando código:', error);
+          alert('No se pudo eliminar el código legal: ' + errorMessage);
+        }
       }
     }
   };
