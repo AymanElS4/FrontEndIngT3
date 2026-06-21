@@ -207,19 +207,35 @@ const loadCasos = async () => {
 
       const uniqueTypes = Array.from(new Set((data || []).map((c: any) => c.tipo_caso_nombre)));
       const typeFolders: FolderItem[] = uniqueTypes.map((type: any, idx: number) => ({
-        id: `folder-${idx}`,
+        id: `folder-type-${idx}`,
         name: type || 'Sin Categoría',
         type: 'folder',
         parentId: null
       }));
 
+      const stateFolders: FolderItem[] = [];
+      let stateFolderIdCounter = 0;
+
       mappedCases.forEach(c => {
         const original = (data || []).find((oc: any) => oc.oid_caso?.toString() === c.id);
-        const folder = typeFolders.find(f => f.name === original?.tipo_caso_nombre);
-        if (folder) c.parentId = folder.id;
+        const typeFolder = typeFolders.find(f => f.name === original?.tipo_caso_nombre);
+        if (typeFolder) {
+          const stateName = original?.estado_nombre || 'Sin Estado';
+          let stateFolder = stateFolders.find(f => f.parentId === typeFolder.id && f.name === stateName);
+          if (!stateFolder) {
+            stateFolder = {
+              id: `folder-state-${stateFolderIdCounter++}`,
+              name: stateName,
+              type: 'folder',
+              parentId: typeFolder.id
+            };
+            stateFolders.push(stateFolder);
+          }
+          c.parentId = stateFolder.id;
+        }
       });
 
-      setItems([...typeFolders, ...mappedCases]);
+      setItems([...typeFolders, ...stateFolders, ...mappedCases]);
     } catch (error) {
       console.error('Error fetching cases:', error);
     } finally {
