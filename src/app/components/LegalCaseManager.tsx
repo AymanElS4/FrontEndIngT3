@@ -8,7 +8,7 @@ import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
-import { Upload, Download, Eye, Trash2, FolderOpen, Search, Filter, Lock, Folder, File, ArrowLeft, ChevronRight, Home } from 'lucide-react';
+import { Upload, Download, Eye, Trash2, FolderOpen, Search, Filter, Lock, Folder, File, ArrowLeft, ChevronRight, Home, Link2, BookOpen, X } from 'lucide-react';
 import { Badge } from './ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Separator } from './ui/separator';
@@ -125,6 +125,16 @@ export function LegalCaseManager({ userTier }: LegalCaseManagerProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
   const [viewingDocument, setViewingDocument] = useState<FileItem | null>(null);
+
+  // Asociar artículos legales (normativas) a un caso — HU "associate legal articles with a case"
+  const [linkingCase, setLinkingCase] = useState<FileItem | null>(null);
+  const [codeSearch, setCodeSearch] = useState('');
+  const [codeResults, setCodeResults] = useState<any[]>([]);
+  const [searchingCodes, setSearchingCodes] = useState(false);
+  const [references, setReferences] = useState<any[]>([]);
+  const [refLoading, setRefLoading] = useState(false);
+  const [linkBusy, setLinkBusy] = useState(false);
+  const [linkError, setLinkError] = useState<string | null>(null);
 
   const { user } = useAuth();
   const isPremiumUser = userTier === 'Profesional' || userTier === 'Empresa' || userTier === 'Administrador';
@@ -380,6 +390,76 @@ const handleDownload = async (file: FileItem) => {
   const handleView = (file: FileItem) => {
     setViewingDocument(file);
   };
+
+  // ── Asociación de artículos legales a un caso ───────────────────────────
+  const loadReferences = async (caseId: string) => {
+    setRefLoading(true);
+    try {
+      const raw = await api.get<any>(`/caso-normativas/?oid_caso=${caseId}`);
+      const data: any[] = Array.isArray(raw) ? raw : raw?.results ?? raw?.data ?? [];
+      setReferences(data);
+    } catch (error) {
+      console.error('Error cargando referencias:', error);
+      setReferences([]);
+    } finally {
+      setRefLoading(false);
+    }
+  };
+
+  const openLinkDialog = (file: FileItem) => {
+    setLinkingCase(file);
+    setCodeSearch('');
+    setCodeResults([]);
+    setLinkError(null);
+    loadReferences(file.id);
+  };
+
+  const handleSearchCodes = async () => {
+    setSearchingCodes(true);
+    setLinkError(null);
+    try {
+      const raw = await api.get<any>(`/codigos/?search=${encodeURIComponent(codeSearch)}`);
+      const data: any[] = Array.isArray(raw) ? raw : raw?.results ?? raw?.data ?? [];
+      setCodeResults(data);
+    } catch (error) {
+      console.error('Error buscando códigos:', error);
+      setLinkError('No se pudieron buscar los artículos.');
+    } finally {
+      setSearchingCodes(false);
+    }
+  };
+
+  const handleLink = async (codigo: any) => {
+    if (!linkingCase) return;
+    setLinkBusy(true);
+    setLinkError(null);
+    try {
+      await api.post('/caso-normativas/', {
+        oid_caso: Number(linkingCase.id),
+        oid_codigo: codigo.oid_codigo,
+      });
+      await loadReferences(linkingCase.id);
+    } catch (error) {
+      setLinkError((error as Error).message || 'No se pudo vincular el artículo.');
+    } finally {
+      setLinkBusy(false);
+    }
+  };
+
+  const handleUnlink = async (relacionId: number) => {
+    if (!linkingCase) return;
+    setLinkBusy(true);
+    setLinkError(null);
+    try {
+      await api.delete(`/caso-normativas/${relacionId}/`);
+      await loadReferences(linkingCase.id);
+    } catch (error) {
+      setLinkError((error as Error).message || 'No se pudo desvincular el artículo.');
+    } finally {
+      setLinkBusy(false);
+    }
+  };
+  // ────────────────────────────────────────────────────────────────────────
 
   const handleDelete = async (id: string) => {
     if (confirm('¿Está seguro de que desea eliminar este caso?')) {
@@ -834,6 +914,14 @@ const handleDownload = async (file: FileItem) => {
                             >
                               <Eye className="w-4 h-4" />
                             </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => openLinkDialog(file)}
+                              title="Vincular artículos legales"
+                            >
+                              <Link2 className="w-4 h-4 text-indigo-600" />
+                            </Button>
                             <TooltipProvider>
                               <Tooltip>
                                 <TooltipTrigger asChild>
@@ -932,6 +1020,155 @@ const handleDownload = async (file: FileItem) => {
           onDownload={() => handleDownload(viewingDocument)}
         />
       )}
+
+      {/* Vincular artículos legales (normativas) a un caso */}
+      <Dialog
+        open={!!linkingCase}
+        onOpenChange={(open) => {
+          if (!open) {
+            setLinkingCase(null);
+            setCodeResults([]);
+            setReferences([]);
+            setLinkError(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <BookOpen className="w-5 h-5" />
+              Artículos legales del caso
+            </DialogTitle>
+            <DialogDescription>
+              {linkingCase
+                ? `Vincule artículos legales para fundamentar el caso "${linkingCase.name}".`
+                : ''}
+            </DialogDescription>
+          </DialogHeader>
+
+          {linkError && (
+            <Alert className="bg-red-50 border-red-200">
+              <AlertDescription className="text-red-800">{linkError}</AlertDescription>
+            </Alert>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-2">
+            {/* Buscador y resultados */}
+            <div className="space-y-3">
+              <Label className="text-sm">Buscar artículos</Label>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <Input
+                    placeholder="Nombre de norma o número de artículo..."
+                    value={codeSearch}
+                    onChange={(e) => setCodeSearch(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleSearchCodes();
+                    }}
+                    className="pl-10"
+                  />
+                </div>
+                <Button onClick={handleSearchCodes} disabled={searchingCodes}>
+                  {searchingCodes ? 'Buscando...' : 'Buscar'}
+                </Button>
+              </div>
+
+              <div className="border rounded-md divide-y max-h-72 overflow-y-auto">
+                {codeResults.length === 0 ? (
+                  <p className="text-sm text-gray-500 p-4 text-center">
+                    Busque un artículo para vincularlo al caso.
+                  </p>
+                ) : (
+                  codeResults.map((codigo) => {
+                    const alreadyLinked = references.some(
+                      (r) => r.oid_codigo === codigo.oid_codigo
+                    );
+                    return (
+                      <div
+                        key={codigo.oid_codigo}
+                        className="flex items-center justify-between gap-2 p-3"
+                      >
+                        <div className="min-w-0">
+                          <p className="text-sm truncate">{codigo.nombre_norma}</p>
+                          <p className="text-xs text-gray-500 truncate">
+                            {codigo.numero_articulo} ·{' '}
+                            {codigo.estado_vigencia ||
+                              (codigo.vigencia ? 'Vigente' : 'Histórico')}
+                          </p>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-1 shrink-0"
+                          disabled={alreadyLinked || linkBusy}
+                          onClick={() => handleLink(codigo)}
+                        >
+                          <Link2 className="w-4 h-4" />
+                          {alreadyLinked ? 'Vinculado' : 'Vincular'}
+                        </Button>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+
+            {/* Referencias actuales */}
+            <div className="space-y-3">
+              <Label className="text-sm">
+                Referencias{' '}
+                {references.length > 0 && (
+                  <Badge variant="secondary" className="ml-1">
+                    {references.length}
+                  </Badge>
+                )}
+              </Label>
+              <div className="border rounded-md divide-y max-h-72 overflow-y-auto">
+                {refLoading ? (
+                  <p className="text-sm text-gray-500 p-4 text-center">Cargando...</p>
+                ) : references.length === 0 ? (
+                  <p className="text-sm text-gray-500 p-4 text-center">
+                    Sin referencias aún.
+                  </p>
+                ) : (
+                  references.map((ref) => (
+                    <div
+                      key={ref.oid_relacion}
+                      className="flex items-center justify-between gap-2 p-3"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-sm truncate">{ref.codigo_nombre}</p>
+                        <p className="text-xs text-gray-500 truncate">
+                          {ref.codigo_numero_articulo}
+                          {ref.codigo_vigencia === false ? ' · Histórico' : ''}
+                        </p>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="gap-1 shrink-0 text-red-600"
+                        disabled={linkBusy}
+                        onClick={() => handleUnlink(ref.oid_relacion)}
+                        title="Desvincular"
+                      >
+                        <X className="w-4 h-4" />
+                        Desvincular
+                      </Button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end pt-2">
+            <Button variant="outline" onClick={() => setLinkingCase(null)}>
+              Cerrar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
