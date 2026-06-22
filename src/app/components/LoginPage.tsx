@@ -16,19 +16,52 @@ interface LoginPageProps {
 export function LoginPage({ onLogin, onShowAdminLogin }: LoginPageProps) {
   const { login } = useAuth();
   const [isSignUp, setIsSignUp] = useState(false);
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
+  const [recoveryStep, setRecoveryStep] = useState(1);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [code, setCode] = useState(''); // Estado para el código de 6 dígitos de confirmación
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const resetFormStates = () => {
+    setError('');
+    setPassword('');
+    setConfirmPassword('');
+    setCode('');
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setIsSubmitting(true);
-
     try {
-      if (isSignUp) {
+      if (isForgotPassword) {
+        if (recoveryStep === 1) {
+          // PASO 1: Enviar código al correo
+          await api.post('/auth/password-reset-request/', { email });
+          setRecoveryStep(2);
+          alert('Se ha enviado un código de verificación a tu correo.');
+        } else {
+          // PASO 2: Confirmar código y nueva clave
+          if (password !== confirmPassword) {
+            throw new Error('Las contraseñas no coinciden');
+          }
+          if (code.length !== 6) {
+            throw new Error('El código debe tener 6 dígitos');
+          }
+          await api.post('/auth/password-reset-confirm/', {
+            email,
+            codigo: code,
+            password
+          });
+          alert('Contraseña restablecida con éxito. Ya puedes iniciar sesión.');
+          setIsForgotPassword(false);
+          setRecoveryStep(1);
+          resetFormStates();
+        }
+      }else if (isSignUp) {
         if (password !== confirmPassword) {
           throw new Error('Las contraseñas no coinciden');
         }
@@ -52,6 +85,13 @@ export function LoginPage({ onLogin, onShowAdminLogin }: LoginPageProps) {
     }
   };
 
+  const getCardTitle = () => {
+    if (isForgotPassword) {
+      return recoveryStep === 1 ? 'Recuperar Contraseña' : 'Establecer Nueva Contraseña';
+    }
+    return isSignUp ? 'Crear Cuenta' : 'Bienvenido de Nuevo';
+  };
+
   return (
     <div className="min-h-screen relative flex items-center justify-center p-4">
       {/* Background Image */}
@@ -73,13 +113,11 @@ export function LoginPage({ onLogin, onShowAdminLogin }: LoginPageProps) {
             </div>
           </div>
           <div className="text-center">
-            <CardTitle className="text-2xl font-bold">
-              {isSignUp ? 'Crear Cuenta' : 'Bienvenido de Nuevo'}
-            </CardTitle>
+            <CardTitle className="text-2xl font-bold">{getCardTitle()}</CardTitle>
             <CardDescription className="text-gray-500">
-              {isSignUp
-                ? 'Regístrate para acceder al sistema de gestión legal'
-                : 'Inicia sesión en tu sistema de gestión legal'}
+              {isForgotPassword 
+                ? (recoveryStep === 1 ? 'Ingresa tu correo para recibir un código de verificación de 6 dígitos' : 'Ingresa el código enviado y tu nueva contraseña')
+                : (isSignUp ? 'Regístrate para acceder al sistema' : 'Inicia sesión en tu sistema de gestión legal')}
             </CardDescription>
           </div>
         </CardHeader>
@@ -91,39 +129,71 @@ export function LoginPage({ onLogin, onShowAdminLogin }: LoginPageProps) {
           )}
           
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="nombre@firma.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                disabled={isSubmitting}
-              />
-            </div>
             
-            <div className="space-y-2">
-              <Label htmlFor="password">Contraseña</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="Ingresa tu contraseña"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                disabled={isSubmitting}
-              />
-            </div>
+            {/* Campo EMAIL: Se muestra en Login, Registro y en el Paso 1 de recuperación. En el paso 2 se queda bloqueado para recordar el correo */}
+            {(!isForgotPassword || recoveryStep === 1) ? (
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="nombre@firma.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  disabled={isSubmitting}
+                />
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Label htmlFor="email-readonly">Recuperando cuenta para:</Label>
+                <Input id="email-readonly" type="email" value={email} disabled className="bg-gray-100" />
+              </div>
+            )}
 
-            {isSignUp && (
+            {/* Campo CÓDIGO VERIFICACIÓN: Solo en el Paso 2 de recuperación */}
+            {isForgotPassword && recoveryStep === 2 && (
+              <div className="space-y-2">
+                <Label htmlFor="verification-code">Código de Verificación (6 dígitos)</Label>
+                <Input
+                  id="verification-code"
+                  type="text"
+                  maxLength={6}
+                  placeholder="Ej: 123456"
+                  value={code}
+                  onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))} // Solo números
+                  required
+                  disabled={isSubmitting}
+                />
+              </div>
+            )}
+            
+            {/* Campos CONTRASEÑA: Se ocultan en el Paso 1 de recuperación */}
+            {(!isForgotPassword || recoveryStep === 2) && (
+              <div className="space-y-2">
+                <Label htmlFor="password">
+                  {isForgotPassword ? 'Nueva Contraseña' : 'Contraseña'}
+                </Label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="Ingresa la contraseña"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  disabled={isSubmitting}
+                />
+              </div>
+            )}
+
+            {/* Campo CONFIRMAR CONTRASEÑA: En Registro o Paso 2 de recuperación */}
+            {(isSignUp || (isForgotPassword && recoveryStep === 2)) && (
               <div className="space-y-2">
                 <Label htmlFor="confirm-password">Confirmar Contraseña</Label>
                 <Input
                   id="confirm-password"
                   type="password"
-                  placeholder="Confirma tu contraseña"
+                  placeholder="Confirma la contraseña"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   required
@@ -134,35 +204,62 @@ export function LoginPage({ onLogin, onShowAdminLogin }: LoginPageProps) {
 
             <div className="space-y-3 pt-2">
               <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700" disabled={isSubmitting}>
-                {isSubmitting ? 'Procesando...' : (isSignUp ? 'Crear Cuenta' : 'Iniciar Sesión')}
+                {isSubmitting ? 'Procesando...' : 
+                  isForgotPassword ? (recoveryStep === 1 ? 'Enviar Código' : 'Restablecer Contraseña') :
+                  isSignUp ? 'Crear Cuenta' : 'Iniciar Sesión'}
               </Button>
 
+              {/* Botones de navegación interna de estados */}
               <Button
                 type="button"
                 variant="ghost"
                 className="w-full text-sm"
-                onClick={() => setIsSignUp(!isSignUp)}
+                onClick={() => {
+                  setIsForgotPassword(false);
+                  setRecoveryStep(1);
+                  setIsSignUp(!isSignUp);
+                  resetFormStates();
+                }}
                 disabled={isSubmitting}
               >
-                {isSignUp ? '¿Ya tienes cuenta? Inicia Sesión' : '¿No tienes cuenta? Regístrate'}
+                {isForgotPassword ? 'Volver al Login' : isSignUp ? '¿Ya tienes cuenta? Inicia Sesión' : '¿No tienes cuenta? Regístrate'}
               </Button>
             </div>
 
-            {!isSignUp && (
+            {/* Enlace "¿Olvidaste tu contraseña?" original */}
+            {!isSignUp && !isForgotPassword && (
               <div className="text-center">
                 <button
                   type="button"
                   className="text-xs text-blue-600 hover:underline"
-                  onClick={() => alert('Próximamente...')}
+                  onClick={() => {
+                    setIsForgotPassword(true);
+                    setRecoveryStep(1);
+                    resetFormStates();
+                  }}
                 >
                   ¿Olvidaste tu contraseña?
                 </button>
-              </div>
-            )}
+                </div>
+              )}
+              {/* Cancelar proceso de recuperación */}
+              {isForgotPassword && (
+                <div className="text-center">
+                  <button
+                    type="button"
+                    className="text-xs text-gray-500 hover:underline"
+                    onClick={() => {
+                      setIsForgotPassword(false);
+                      setRecoveryStep(1);
+                      resetFormStates();
+                    }}
+                  >
+                    Cancelar recuperación
+                  </button>
+                </div>
+              )}
           </form>
-
-          {/* Admin Login Link */}
-          <div className="mt-6 pt-6 border-t">
+           <div className="mt-6 pt-6 border-t">
             <Button
               variant="outline"
               className="w-full gap-2 border-gray-300"
