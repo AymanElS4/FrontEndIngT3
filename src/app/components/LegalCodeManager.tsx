@@ -151,7 +151,14 @@ export function LegalCodeManager({ userTier }: LegalCodeManagerProps) {
 
   // Filter items
   const filteredItems = useMemo(() => {
-    return currentItems.filter((item) => {
+    const hasActiveDeepFilters = categoryFilter !== 'Todos' || statusFilter !== 'Todos' || startDate !== '' || endDate !== '';
+    const hasSearch = searchQuery !== '';
+
+    const baseItems = (hasActiveDeepFilters || hasSearch) 
+      ? items.filter(item => item.type === 'file') 
+      : currentItems;
+
+    return baseItems.filter((item) => {
       if (item.type === 'folder') {
         return item.name.toLowerCase().includes(searchQuery.toLowerCase());
       }
@@ -171,7 +178,7 @@ export function LegalCodeManager({ userTier }: LegalCodeManagerProps) {
       
       return matchesSearch && matchesCategory && matchesStatus && matchesStartDate && matchesEndDate;
     });
-  }, [currentItems, searchQuery, categoryFilter, statusFilter, startDate, endDate]);
+  }, [items, currentItems, searchQuery, categoryFilter, statusFilter, startDate, endDate]);
 
   // Sort items: folders first, then files
   const sortedItems = useMemo(() => {

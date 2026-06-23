@@ -41,6 +41,7 @@ interface FileItem {
   uploadDate: string;
   size: string;
   status: 'Activo' | 'Cerrado' | 'Pendiente' | 'Histórico' | 'Archivado';
+  category?: string;
 }
 
 type Item = FolderItem | FileItem;
@@ -77,7 +78,8 @@ export function LegalCaseManager({ userTier }: LegalCaseManagerProps) {
           caseNumber: caso.numero_expediente || '0',
           uploadDate: caso.fecha_inicio || new Date().toISOString().split('T')[0],
           size: '0 KB', // Not in current backend model
-          status: (caso.estado_nombre as any) || 'Pendiente'
+          status: (caso.estado_nombre as any) || 'Pendiente',
+          category: caso.tipo_caso_nombre || 'Sin Categoría'
         }));
 
         // Optionally create folders based on TipoCaso
@@ -165,7 +167,14 @@ export function LegalCaseManager({ userTier }: LegalCaseManagerProps) {
 
   // Filter items
   const filteredItems = useMemo(() => {
-    return currentItems.filter((item) => {
+    const hasActiveDeepFilters = categoryFilter !== 'Todos' || statusFilter !== 'Todos' || startDate !== '' || endDate !== '';
+    const hasSearch = searchQuery !== '';
+
+    const baseItems = (hasActiveDeepFilters || hasSearch) 
+      ? items.filter(item => item.type === 'file') 
+      : currentItems;
+
+    return baseItems.filter((item) => {
       if (item.type === 'folder') {
         return item.name.toLowerCase().includes(searchQuery.toLowerCase());
       }
@@ -175,15 +184,17 @@ export function LegalCaseManager({ userTier }: LegalCaseManagerProps) {
         fileItem.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         fileItem.caseNumber.toLowerCase().includes(searchQuery.toLowerCase());
       
+      const matchesCategory = categoryFilter === 'Todos' || fileItem.category === categoryFilter;
+      
       const matchesStatus = statusFilter === 'Todos' || fileItem.status === statusFilter;
       
       const caseDate = new Date(fileItem.uploadDate);
       const matchesStartDate = !startDate || caseDate >= new Date(startDate);
       const matchesEndDate = !endDate || caseDate <= new Date(endDate);
       
-      return matchesSearch && matchesStatus && matchesStartDate && matchesEndDate;
+      return matchesSearch && matchesCategory && matchesStatus && matchesStartDate && matchesEndDate;
     });
-  }, [currentItems, searchQuery, statusFilter, startDate, endDate]);
+  }, [items, currentItems, searchQuery, categoryFilter, statusFilter, startDate, endDate]);
 
   // Sort items: folders first, then files
   const sortedItems = useMemo(() => {
@@ -212,7 +223,8 @@ const loadCasos = async () => {
         caseNumber: caso.numero_expediente || '0',
         uploadDate: caso.fecha_inicio || new Date().toISOString().split('T')[0],
         size: '0 KB',
-        status: (caso.estado_nombre as any) || 'Pendiente'
+        status: (caso.estado_nombre as any) || 'Pendiente',
+        category: caso.tipo_caso_nombre || 'Sin Categoría'
       }));
 
       const uniqueTypes = Array.from(new Set((data || []).map((c: any) => c.tipo_caso_nombre)));
@@ -277,7 +289,7 @@ const loadCasos = async () => {
   // Reset to page 1 when filters change
   useMemo(() => {
     setCurrentPage(1);
-  }, [searchQuery, statusFilter, startDate, endDate, currentFolderId]);
+  }, [searchQuery, categoryFilter, statusFilter, startDate, endDate, currentFolderId]);
   const resetForm = () => {
     setNewCaseName('');
     setNewCaseNumber('');
