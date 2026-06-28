@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -108,8 +108,11 @@ export function MembersManager() {
   }, [filteredMembers, currentPage]);
 
   // Reset to page 1 when search changes
-  useMemo(() => {
-    setCurrentPage(1);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setCurrentPage(1);
+    }, 0);
+    return () => clearTimeout(timer);
   }, [searchQuery]);
 
   const handleAddMember = () => {

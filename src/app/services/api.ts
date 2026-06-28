@@ -1,4 +1,4 @@
-// @ts-ignore
+// @ts-expect-error Vite env types not available in plain TS context
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 
 interface RequestOptions extends RequestInit {

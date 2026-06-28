@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Card, CardContent } from './ui/card';
 import { Button } from './ui/button';
 import { CheckCircle, Download, Mail } from 'lucide-react';
@@ -11,14 +12,14 @@ interface PaymentConfirmationProps {
 }
 
 export function PaymentConfirmation({ plan, onGoHome }: PaymentConfirmationProps) {
-  const transactionId = `TXN-${Date.now().toString().slice(-8)}`;
-  const currentDate = new Date().toLocaleDateString('es-MX', {
+  const [transactionId] = useState(() => `TXN-${Date.now().toString().slice(-8)}`);
+  const [currentDate] = useState(() => new Date().toLocaleDateString('es-MX', {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
     hour: '2-digit',
     minute: '2-digit'
-  });
+  }));
 
   return (
     <div className="max-w-2xl mx-auto py-12">

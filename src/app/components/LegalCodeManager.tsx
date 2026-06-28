@@ -107,7 +107,10 @@ export function LegalCodeManager({ userTier }: LegalCodeManagerProps) {
   };
 
   useEffect(() => {
-    loadCodigos();
+    const timer = setTimeout(() => {
+      loadCodigos();
+    }, 0);
+    return () => clearTimeout(timer);
   }, []);
 
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
@@ -196,8 +199,11 @@ export function LegalCodeManager({ userTier }: LegalCodeManagerProps) {
   }, [sortedItems, currentPage]);
 
   // Reset to page 1 when filters change
-  useMemo(() => {
-    setCurrentPage(1);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setCurrentPage(1);
+    }, 0);
+    return () => clearTimeout(timer);
   }, [searchQuery, categoryFilter, statusFilter, startDate, endDate, currentFolderId]);
 
   const handleUpload = async () => {

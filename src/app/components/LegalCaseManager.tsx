@@ -282,13 +282,19 @@ const loadCasos = async () => {
         console.error('Error fetching metadata:', error);
       }
     };
-    loadCasos();
-    loadMetadata();
+    const timer = setTimeout(() => {
+      loadCasos();
+      loadMetadata();
+    }, 0);
+    return () => clearTimeout(timer);
   }, []);
   
   // Reset to page 1 when filters change
-  useMemo(() => {
-    setCurrentPage(1);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setCurrentPage(1);
+    }, 0);
+    return () => clearTimeout(timer);
   }, [searchQuery, categoryFilter, statusFilter, startDate, endDate, currentFolderId]);
   const resetForm = () => {
     setNewCaseName('');

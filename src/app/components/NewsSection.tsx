@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
-import { Calendar, Clock, Edit3, PlusCircle } from 'lucide-react';
+import { Calendar, Clock, Edit3 } from 'lucide-react';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
@@ -72,7 +72,10 @@ export function NewsSection() {
   };
 
   useEffect(() => {
-    loadNotifications();
+    const timer = setTimeout(() => {
+      loadNotifications();
+    }, 0);
+    return () => clearTimeout(timer);
   }, []);
 
   const updateField = (field: keyof typeof formData, value: string) => {
