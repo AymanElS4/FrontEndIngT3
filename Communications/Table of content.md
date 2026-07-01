@@ -1,4 +1,3 @@
-
 # File Inventory Report - Communications Folder
 
 This document summarizes the contents of the "Communications folder" based on the provided snapshot.
